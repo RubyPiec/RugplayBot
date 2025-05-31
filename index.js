@@ -73,7 +73,7 @@ socket.addEventListener("message", (event) => {
 		if (parsed.type === "ping") return; // STOP PINGING ME
 
 		if(parsed.type==='live-trade'){
-			console.log(parsed.data.coinSymbol + ': ' + parsed.data.price);
+			// console.log(parsed.data.coinSymbol + ': ' + parsed.data.price);
 		};
 		// console.log("Event received:", parsed);
 	} catch {
