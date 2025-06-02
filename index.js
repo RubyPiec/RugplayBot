@@ -2,6 +2,7 @@ require('dotenv').config()
 const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, Events, GatewayIntentBits } = require('discord.js');
+const db = require('./db');
 
 const discordToken = process.env.DISCORD_TOKEN;
 
@@ -32,6 +33,17 @@ for (const folder of commandFolders) {
 client.once(Events.ClientReady, readyClient => {
 	console.log(`Ready! Logged in as ${readyClient.user.tag}`);
 });
+
+async function getNotifiers(coin,value) {
+  const result = await db.query(`SELECT * FROM users 
+		WHERE coin = $1
+		AND (
+			(comparison = '>' AND value < $2)
+		OR
+			(comparison = '<' AND value > $2)
+		);`, [coin,value]);
+  return result;
+}
 
 client.on(Events.InteractionCreate, async interaction => {
 	if (!interaction.isChatInputCommand()) return;
@@ -65,17 +77,26 @@ socket.addEventListener("open", () => {
 	socket.send(JSON.stringify({ type: "set_coin", coinSymbol: "@global" }));
 });
 
-socket.addEventListener("message", (event) => {
+socket.addEventListener("message", async (event) => {
 	const raw = event.data;
 
 	try {
 		const parsed = JSON.parse(raw);
 		if (parsed.type === "ping") return; // STOP PINGING ME
-
-		if(parsed.type==='live-trade'){
+		
+		if(parsed.type==='all-trades'){
 			// console.log(parsed.data.coinSymbol + ': ' + parsed.data.price);
+			let notifs = await getNotifiers(parsed.data.coinSymbol,parsed.data.price)
+			for(i of notifs.rows){
+				const user = await client.users.fetch(i["username"]);
+				if(i["comparison"]==">"){
+					await user.send(i["coin"] + ' is now worth $' + parsed.data.price + '. This is above $' + i["value"] + '.')
+				} else{
+					await user.send(i["coin"] + ' is now worth $' + parsed.data.price + '. This is below $' + i["value"] + '.')
+				}
+			}
 		};
-		// console.log("Event received:", parsed);
+		//console.log("Event received:", parsed);
 	} catch {
 		console.log("Raw message:", raw);
 	}
